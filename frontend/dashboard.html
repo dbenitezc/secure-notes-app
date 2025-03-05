@@ -41,9 +41,10 @@
     </div>
 
     <script>
+        const backendURL = "https://notas-seguras.onrender.com";
         let userToken = localStorage.getItem("token");
         let userEmail = localStorage.getItem("email");
-
+    
         if (!userToken) {
             alert("No estás autenticado. Redirigiendo al login...");
             window.location.href = "login.html";
@@ -51,12 +52,12 @@
             document.getElementById("userEmail").innerText = userEmail;
             getNotes();
         }
-
+    
         async function addNote() {
             const title = document.getElementById("noteTitle").value;
             const content = document.getElementById("noteContent").value;
-
-            const response = await fetch("http://localhost:5000/notes", {
+    
+            const response = await fetch(`${backendURL}/notes`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -64,24 +65,24 @@
                 },
                 body: JSON.stringify({ title, content })
             });
-
+    
             const data = await response.json();
             alert(data.message);
-            getNotes(); // Actualizar lista de notas
+            getNotes();
         }
-
+    
         async function getNotes() {
-            const response = await fetch("http://localhost:5000/notes", {
+            const response = await fetch(`${backendURL}/notes`, {
                 method: "GET",
                 headers: {
                     "Authorization": `Bearer ${userToken}`
                 }
             });
-
+    
             const notes = await response.json();
             const notesList = document.getElementById("notesList");
             notesList.innerHTML = "";
-
+    
             notes.forEach(note => {
                 notesList.innerHTML += `
                     <li class="list-group-item">
@@ -92,13 +93,13 @@
                 `;
             });
         }
-
+    
         async function editNote(id) {
             const newTitle = prompt("Nuevo título:");
             const newContent = prompt("Nuevo contenido:");
-
+    
             if (newTitle && newContent) {
-                const response = await fetch(`http://localhost:5000/notes/${id}`, {
+                const response = await fetch(`${backendURL}/notes/${id}`, {
                     method: "PUT",
                     headers: {
                         "Content-Type": "application/json",
@@ -106,34 +107,35 @@
                     },
                     body: JSON.stringify({ title: newTitle, content: newContent })
                 });
-
+    
                 const data = await response.json();
                 alert(data.message);
                 getNotes();
             }
         }
-
+    
         async function deleteNote(id) {
             if (confirm("¿Seguro que deseas eliminar esta nota?")) {
-                const response = await fetch(`http://localhost:5000/notes/${id}`, {
+                const response = await fetch(`${backendURL}/notes/${id}`, {
                     method: "DELETE",
                     headers: {
                         "Authorization": `Bearer ${userToken}`
                     }
                 });
-
+    
                 const data = await response.json();
                 alert(data.message);
                 getNotes();
             }
         }
-
+    
         function logout() {
             localStorage.removeItem("token");
             localStorage.removeItem("email");
             window.location.href = "index.html";
         }
     </script>
+    
 
 </body>
 </html>

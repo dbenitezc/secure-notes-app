@@ -1,4 +1,5 @@
 const express = require('express');
+const fetch = require("node-fetch"); 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
@@ -156,3 +157,37 @@ app.delete("/notes/:id", authenticateToken, (req, res) => {
     res.json({ message: "Note deleted successfully" });
 });
 
+const verifyCaptcha = async (req, res, next) => {
+  const { captcha } = req.body;
+  if (!captcha) return res.status(400).json({ message: "Captcha requerido" });
+
+  const secret = "6Ld3P-oqAAAAANFKI2a8XaNFRu7c-GqCcF0XVQvo"; // Reemplaza con tu clave secreta de Google reCAPTCHA
+  const response = await fetch(`https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${captcha}`, { method: "POST" });
+  const data = await response.json();
+
+  if (!data.success) return res.status(400).json({ message: "Captcha inválido" });
+  next();
+};
+
+// Aplicar CAPTCHA en Registro
+app.post("/register", verifyCaptcha, async (req, res) => {
+  const { email, password } = req.body;
+  const userExists = users.find(u => u.email === email);
+  if (userExists) return res.status(400).json({ message: "El usuario ya existe" });
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+  users.push({ email, password: hashedPassword });
+  res.json({ message: "Registro exitoso" });
+});
+
+// Aplicar CAPTCHA en Login
+app.post("/login", verifyCaptcha, async (req, res) => {
+  const { email, password } = req.body;
+  const user = users.find(u => u.email === email);
+  if (!user) return res.status(400).json({ message: "Usuario no encontrado" });
+
+  const validPassword = await bcrypt.compare(password, user.password);
+  if (!validPassword) return res.status(400).json({ message: "Contraseña incorrecta" });
+
+  res.json({ message: "2FA code sent to email" });
+});
