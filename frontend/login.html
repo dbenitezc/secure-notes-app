@@ -36,7 +36,7 @@
         
         <div class="mt-3 d-none" id="twoFactorSection">
             <h3>Verificación 2FA</h3>
-            <input type="text" id="twoFactorCode" class="form-control" placeholder="Código 2FA">
+            <input type="text" id="twoFactorCode" class="form-control" placeholder="Código">
             <button class="btn btn-warning btn-custom mt-2" onclick="verify2FA()">Verificar</button>
             <p id="twoFactorMessage" class="mt-3 text-danger"></p>
         </div>
@@ -58,7 +58,7 @@
             const data = await response.json();
             document.getElementById("loginMessage").innerText = data.message;
 
-            if (data.message === "2FA code sent to email") {
+            if (data.message === "Codigo enviado a su correo") {
                 document.getElementById("twoFactorSection").classList.remove("d-none");
             }
         }

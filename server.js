@@ -7,10 +7,13 @@ const cors = require('cors');
 const session = require('express-session');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
+const xss = require('xss-clean');
+const winston = require('winston');
+const morgan = require('morgan');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
+app.use(xss());
 // Middleware
 app.use(express.json());
 app.use(cors());
@@ -41,12 +44,12 @@ const transporter = nodemailer.createTransport({
 
 // Register User
 app.post('/register',
-  body('email').isEmail(),
+  body('email').trim().isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ errores: errors.array() });
     }
 
     const { email, password } = req.body;
@@ -54,23 +57,24 @@ app.post('/register',
     
     const user = { email, password: hashedPassword, twoFactorCode: null };
     users.push(user);
-    res.status(201).json({ message: 'User registered successfully' });
+    res.status(201).json({ message: 'Usuario registrado exitosamente' });
   }
 );
 
 // Login with 2FA
 app.post('/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
+  logger.info(`Intento de inicio de sesión para ${email}`);
   const user = users.find(u => u.email === email);
 
   if (!user || !(await bcrypt.compare(password, user.password))) {
-    return res.status(401).json({ message: 'Invalid credentials' });
+    return res.status(401).json({ message: 'Datos incorrectos' });
   }
 
   // Generate 2FA code
   const twoFactorCode = Math.floor(100000 + Math.random() * 900000).toString();
   user.twoFactorCode = twoFactorCode;
-
+  logger.info(`Código 2FA generado para ${email}`);
   console.log(`Generated 2FA Code for ${email}: ${twoFactorCode}`); // Debug log
 
   // Send email with the 2FA code
@@ -80,7 +84,7 @@ app.post('/login', loginLimiter, async (req, res) => {
     text: `Your authentication code is: ${twoFactorCode}`
   });
 
-  res.json({ message: '2FA code sent to email' });
+  res.json({ message: 'Codigo enviado a su correo' });
 });
 
 // Verify 2FA
@@ -124,7 +128,7 @@ app.post("/notes", authenticateToken, (req, res) => {
     const { title, content } = req.body;
     const note = { id: notes.length + 1, email: req.user.email, title, content };
     notes.push(note);
-    res.json({ message: "Note added successfully", note });
+    res.json({ message: "Nota agregada con exito", note });
 });
 
 // Get all notes for the authenticated user
@@ -143,7 +147,7 @@ app.put("/notes/:id", authenticateToken, (req, res) => {
 
     note.title = title;
     note.content = content;
-    res.json({ message: "Note updated successfully", note });
+    res.json({ message: "Nota actualizada con exito", note });
 });
 
 // Delete a note
@@ -153,6 +157,23 @@ app.delete("/notes/:id", authenticateToken, (req, res) => {
     if (index === -1) return res.status(404).json({ message: "Note not found" });
 
     notes.splice(index, 1);
-    res.json({ message: "Note deleted successfully" });
+    res.json({ message: "Nota borrada con exito" });
 });
 
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' }),
+  ],
+});
+
+app.use(morgan('combined', { stream: { write: message => logger.info(message) } }));
+
+// Registrar errores en consola si estamos en desarrollo
+if (process.env.NODE_ENV !== 'production') {
+  logger.add(new winston.transports.Console({
+    format: winston.format.simple(),
+  }));
+}
